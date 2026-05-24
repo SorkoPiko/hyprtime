@@ -5,8 +5,8 @@ import (
 	"log"
 	"time"
 
-	"hyprtime/internal/db"
-	"hyprtime/internal/models"
+	"github.com/ayanrajpoot10/hyprtime/internal/db"
+	"github.com/ayanrajpoot10/hyprtime/internal/models"
 
 	"github.com/gotk3/gotk3/gtk"
 )

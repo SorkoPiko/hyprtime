@@ -3,8 +3,8 @@ package main
 import (
 	"log"
 
-	"hyprtime/internal/db"
-	"hyprtime/internal/ui"
+	"github.com/ayanrajpoot10/hyprtime/internal/db"
+	"github.com/ayanrajpoot10/hyprtime/internal/ui"
 )
 
 func main() {

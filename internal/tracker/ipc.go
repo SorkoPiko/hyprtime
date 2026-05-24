@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"hyprtime/internal/logger"
+	"github.com/ayanrajpoot10/hyprtime/internal/logger"
 )
 
 type IPC struct {

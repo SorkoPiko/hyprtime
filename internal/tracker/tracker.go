@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"hyprtime/internal/db"
-	"hyprtime/internal/logger"
+	"github.com/ayanrajpoot10/hyprtime/internal/db"
+	"github.com/ayanrajpoot10/hyprtime/internal/logger"
 )
 
 type Tracker struct {

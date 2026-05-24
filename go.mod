@@ -1,4 +1,4 @@
-module hyprtime
+module github.com/ayanrajpoot10/hyprtime
 
 go 1.25
 

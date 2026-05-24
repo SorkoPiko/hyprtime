@@ -8,7 +8,7 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
-	"hyprtime/internal/sysutil"
+	"github.com/ayanrajpoot10/hyprtime/internal/sysutil"
 )
 
 //go:embed schema.sql

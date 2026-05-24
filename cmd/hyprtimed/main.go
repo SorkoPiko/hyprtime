@@ -6,9 +6,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"hyprtime/internal/db"
-	"hyprtime/internal/logger"
-	"hyprtime/internal/tracker"
+	"github.com/ayanrajpoot10/hyprtime/internal/db"
+	"github.com/ayanrajpoot10/hyprtime/internal/logger"
+	"github.com/ayanrajpoot10/hyprtime/internal/tracker"
 )
 
 func main() {
