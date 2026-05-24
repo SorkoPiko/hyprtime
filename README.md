@@ -17,13 +17,15 @@ yay -S hyprtime-bin
 
 ## Usage
 
-1. Add the daemon to your hyprland config (`~/.config/hypr/hyprland.conf`):
+1. Add the daemon to your Hyprland Lua config. Autostart apps on `hyprland.start`:
 
-```
-exec-once = hyprtimed
+```lua
+hl.on("hyprland.start", function ()
+	hl.exec_cmd("hyprtimed")
+end)
 ```
 
-2. Restart hyprland
+2. Restart Hyprland
 
 3. Launch the application from your application menu or run:
 
