@@ -13,7 +13,7 @@ import (
 
 func main() {
 	debug := flag.Bool("debug", false, "Enable debug logging")
-	silent := flag.Bool("quiet", false, "Silent all non-error logs")
+	silent := flag.Bool("silent", false, "Silent all non-error logs")
 	flag.Parse()
 
 	logger.Init()
