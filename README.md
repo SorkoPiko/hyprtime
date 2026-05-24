@@ -37,4 +37,4 @@ The daemon will automatically track your screen time in the background, and you 
 
 ## License
 
-See LICENSE file for details.
+See [LICENSE](LICENSE) file for details.
