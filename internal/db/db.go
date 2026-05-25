@@ -7,8 +7,6 @@ import (
 	"path/filepath"
 
 	_ "github.com/mattn/go-sqlite3"
-
-	"github.com/ayanrajpoot10/hyprtime/internal/sysutil"
 )
 
 //go:embed schema.sql
@@ -19,12 +17,12 @@ type DB struct {
 }
 
 func New() (*DB, error) {
-	dbPath, err := sysutil.DBPath()
+	dbPath, err := DBPath()
 	if err != nil {
 		return nil, fmt.Errorf("db path: %w", err)
 	}
 
-	if err := sysutil.EnsureDir(filepath.Dir(dbPath)); err != nil {
+	if err := EnsureDir(filepath.Dir(dbPath)); err != nil {
 		return nil, fmt.Errorf("db dir: %w", err)
 	}
 
