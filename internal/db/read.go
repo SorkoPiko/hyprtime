@@ -8,7 +8,7 @@ type DailyUsage struct {
 }
 
 func (db *DB) GetDailyUsage(date string) ([]DailyUsage, error) {
-	rows, err := db.Query(`
+	rows, err := db.db.Query(`
 		SELECT ds.app_id, a.class, ds.date, ds.duration
 		FROM daily_usage ds
 		JOIN apps a ON ds.app_id = a.id
@@ -34,7 +34,7 @@ func (db *DB) GetDailyUsage(date string) ([]DailyUsage, error) {
 
 func (db *DB) GetTotalScreenTimeForDate(date string) (int64, error) {
 	var total int64
-	err := db.QueryRow(`
+	err := db.db.QueryRow(`
 		SELECT COALESCE(SUM(duration), 0)
 		FROM daily_usage
 		WHERE date = ?

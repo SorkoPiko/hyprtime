@@ -15,7 +15,7 @@ import (
 var schema string
 
 type DB struct {
-	*sql.DB
+	db *sql.DB
 }
 
 func New() (*DB, error) {
@@ -33,17 +33,21 @@ func New() (*DB, error) {
 		return nil, fmt.Errorf("open db: %w", err)
 	}
 
-	db := &DB{sqlDB}
+	db := &DB{db: sqlDB}
 
-	if _, err := db.Exec("PRAGMA foreign_keys = ON"); err != nil {
-		db.Close()
+	if _, err := db.db.Exec("PRAGMA foreign_keys = ON"); err != nil {
+		db.db.Close()
 		return nil, fmt.Errorf("enable foreign keys: %w", err)
 	}
 
-	if _, err := db.Exec(schema); err != nil {
-		db.Close()
+	if _, err := db.db.Exec(schema); err != nil {
+		db.db.Close()
 		return nil, fmt.Errorf("init schema: %w", err)
 	}
 
 	return db, nil
+}
+
+func (db *DB) Close() error {
+	return db.db.Close()
 }

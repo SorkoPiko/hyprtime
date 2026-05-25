@@ -3,7 +3,7 @@ package db
 import "time"
 
 func (db *DB) GetOrCreateApp(class string) (int64, error) {
-	if _, err := db.Exec(
+	if _, err := db.db.Exec(
 		"INSERT INTO apps (class) VALUES (?) ON CONFLICT(class) DO NOTHING",
 		class,
 	); err != nil {
@@ -11,7 +11,7 @@ func (db *DB) GetOrCreateApp(class string) (int64, error) {
 	}
 
 	var appID int64
-	if err := db.QueryRow("SELECT id FROM apps WHERE class = ?", class).Scan(&appID); err != nil {
+	if err := db.db.QueryRow("SELECT id FROM apps WHERE class = ?", class).Scan(&appID); err != nil {
 		return 0, err
 	}
 
@@ -23,7 +23,7 @@ func (db *DB) UpdateAppTime(appID int64, duration int64) error {
 		return nil
 	}
 
-	tx, err := db.Begin()
+	tx, err := db.db.Begin()
 	if err != nil {
 		return err
 	}
