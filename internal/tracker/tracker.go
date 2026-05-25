@@ -38,7 +38,7 @@ func New(db *db.DB) *Tracker {
 }
 
 func (t *Tracker) Start() error {
-	logger.Info("Init IPC")
+	logger.Infof("Init IPC")
 
 	var err error
 	t.ipc, err = NewIPC()
@@ -46,7 +46,7 @@ func (t *Tracker) Start() error {
 		return fmt.Errorf("init IPC: %w", err)
 	}
 
-	logger.Debug("Subscribing to events")
+	logger.Debugf("Subscribing to events")
 	if err := t.ipc.SubscribeToEvents(t.eventChan); err != nil {
 		return fmt.Errorf("subscribe events: %w", err)
 	}
@@ -57,7 +57,7 @@ func (t *Tracker) Start() error {
 	t.wg.Add(1)
 	go t.periodicUpdate()
 
-	logger.Info("Tracking started")
+	logger.Infof("Tracking started")
 
 	go t.handleFocusChange()
 
@@ -65,7 +65,7 @@ func (t *Tracker) Start() error {
 }
 
 func (t *Tracker) Stop() {
-	logger.Info("Stopping tracker")
+	logger.Infof("Stopping tracker")
 
 	t.mu.Lock()
 	if t.currentSession != nil {
@@ -78,9 +78,9 @@ func (t *Tracker) Stop() {
 		}
 
 		if err := t.db.UpdateAppTime(t.currentSession.appID, duration); err != nil {
-			logger.Error("Update time: %v", err)
+			logger.Errorf("Update time: %v", err)
 		} else {
-			logger.Debug("Final update: %s (%.1fs)", t.currentSession.class, float64(duration))
+			logger.Debugf("Final update: %s (%.1fs)", t.currentSession.class, float64(duration))
 		}
 		t.currentSession = nil
 	}
@@ -89,7 +89,7 @@ func (t *Tracker) Stop() {
 	close(t.stopChan)
 	t.wg.Wait()
 
-	logger.Info("Tracker stopped")
+	logger.Infof("Tracker stopped")
 }
 
 func (t *Tracker) processEvents() {
@@ -104,7 +104,7 @@ func (t *Tracker) processEvents() {
 				continue
 			}
 			eventType, data := ParseEvent(event)
-			logger.Debug("Event: %s >> %s", eventType, data)
+			logger.Debugf("Event: %s >> %s", eventType, data)
 
 			switch eventType {
 			case "activewindow":
@@ -143,9 +143,9 @@ func (t *Tracker) periodicUpdate() {
 
 				if duration > 0 {
 					if err := t.db.UpdateAppTime(t.currentSession.appID, duration); err != nil {
-						logger.Error("Periodic update: %v", err)
+						logger.Errorf("Periodic update: %v", err)
 					} else {
-						logger.Debug("Update: %s (%.1fs)", t.currentSession.class, float64(duration))
+						logger.Debugf("Update: %s (%.1fs)", t.currentSession.class, float64(duration))
 						t.lastUpdate = now
 					}
 				}
@@ -158,7 +158,7 @@ func (t *Tracker) periodicUpdate() {
 func (t *Tracker) handleFocusChange() {
 	window, err := t.ipc.GetActiveWindow()
 	if err != nil {
-		logger.Error("Active window: %v", err)
+		logger.Errorf("Active window: %v", err)
 		return
 	}
 
@@ -183,15 +183,15 @@ func (t *Tracker) handleFocusChange() {
 		}
 
 		if err := t.db.UpdateAppTime(t.currentSession.appID, duration); err != nil {
-			logger.Error("Update time: %v", err)
+			logger.Errorf("Update time: %v", err)
 		} else {
-			logger.Debug("Updated: %s (%.1fs)", t.currentSession.class, float64(duration))
+			logger.Debugf("Updated: %s (%.1fs)", t.currentSession.class, float64(duration))
 		}
 	}
 
 	appID, err := t.db.GetOrCreateApp(window.Class)
 	if err != nil {
-		logger.Error("Get/create app: %v", err)
+		logger.Errorf("Get/create app: %v", err)
 		return
 	}
 
@@ -204,7 +204,7 @@ func (t *Tracker) handleFocusChange() {
 	}
 	t.lastUpdate = time.Now()
 
-	logger.Info("Focus: %s (%s)", window.Class, window.Title)
+	logger.Infof("Focus: %s (%s)", window.Class, window.Title)
 }
 
 func (t *Tracker) handleWindowOpen(data string) {
@@ -220,11 +220,11 @@ func (t *Tracker) handleWindowOpen(data string) {
 
 	_, err := t.db.GetOrCreateApp(class)
 	if err != nil {
-		logger.Error("Get/create app: %v", err)
+		logger.Errorf("Get/create app: %v", err)
 		return
 	}
 
-	logger.Debug("Open: %s", class)
+	logger.Debugf("Open: %s", class)
 }
 
 func (t *Tracker) handleWindowClose(data string) {
@@ -243,9 +243,9 @@ func (t *Tracker) handleWindowClose(data string) {
 		}
 
 		if err := t.db.UpdateAppTime(t.currentSession.appID, duration); err != nil {
-			logger.Error("Update time: %v", err)
+			logger.Errorf("Update time: %v", err)
 		} else {
-			logger.Debug("Close: %s (%.1fs)", t.currentSession.class, float64(duration))
+			logger.Debugf("Close: %s (%.1fs)", t.currentSession.class, float64(duration))
 		}
 		t.currentSession = nil
 		t.lastUpdate = time.Time{}

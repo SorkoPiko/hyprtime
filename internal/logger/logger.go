@@ -8,39 +8,39 @@ import (
 type Level int
 
 const (
-	SilentL Level = iota
-	NormalL
-	DebugL
+	Silent Level = iota
+	Info
+	Debug
 )
 
-var currentLevel Level = NormalL
+var currentLevel Level = Info
 
 func SetLevel(level Level) {
 	currentLevel = level
 }
 
-func Info(format string, v ...any) {
-	if currentLevel >= NormalL {
+func Infof(format string, v ...any) {
+	if currentLevel >= Info {
 		log.Printf("INFO: "+format, v...)
 	}
 }
 
-func Debug(format string, v ...any) {
-	if currentLevel >= DebugL {
+func Debugf(format string, v ...any) {
+	if currentLevel >= Debug {
 		log.Printf("DBG: "+format, v...)
 	}
 }
 
-func Error(format string, v ...any) {
+func Errorf(format string, v ...any) {
 	log.Printf("ERR: "+format, v...)
 }
 
-func Fatal(format string, v ...any) {
+func Fatalf(format string, v ...any) {
 	log.Fatalf("FATAL: "+format, v...)
 }
 
-func Warn(format string, v ...any) {
-	if currentLevel >= NormalL {
+func Warnf(format string, v ...any) {
+	if currentLevel >= Info {
 		log.Printf("WARN: "+format, v...)
 	}
 }

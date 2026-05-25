@@ -82,7 +82,7 @@ func (i *IPC) SubscribeToEvents(eventChan chan<- string) error {
 		for {
 			line, err := reader.ReadString('\n')
 			if err != nil {
-				logger.Error("Read events: %v", err)
+				logger.Errorf("Read events: %v", err)
 				return
 			}
 			line = strings.TrimSpace(line)
