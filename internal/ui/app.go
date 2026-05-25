@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/ayanrajpoot10/hyprtime/internal/db"
-	"github.com/ayanrajpoot10/hyprtime/internal/models"
 
 	"github.com/gotk3/gotk3/gtk"
 )
@@ -42,7 +41,7 @@ func (a *App) formatDuration(seconds int64) string {
 	}
 }
 
-func (a *App) getDailyUsage(date string) (*models.DailyData, error) {
+func (a *App) getDailyUsage(date string) (*DailyData, error) {
 	stats, err := a.db.GetDailyUsage(date)
 	if err != nil {
 		return nil, fmt.Errorf("db error: %w", err)
@@ -53,14 +52,14 @@ func (a *App) getDailyUsage(date string) (*models.DailyData, error) {
 		return nil, fmt.Errorf("db error: %w", err)
 	}
 
-	apps := make([]models.AppData, 0, len(stats))
+	apps := make([]AppData, 0, len(stats))
 	for _, stat := range stats {
 		percentage := 0.0
 		if totalTime > 0 {
 			percentage = float64(stat.TotalTime) / float64(totalTime) * 100
 		}
 
-		apps = append(apps, models.AppData{
+		apps = append(apps, AppData{
 			Class:              stat.Class,
 			TotalTime:          stat.TotalTime,
 			TotalTimeFormatted: a.formatDuration(stat.TotalTime),
@@ -68,7 +67,7 @@ func (a *App) getDailyUsage(date string) (*models.DailyData, error) {
 		})
 	}
 
-	return &models.DailyData{
+	return &DailyData{
 		Date:               date,
 		TotalTime:          totalTime,
 		TotalTimeFormatted: a.formatDuration(totalTime),
@@ -156,7 +155,7 @@ func (a *App) updateData() {
 
 	a.clearListBox()
 
-	sortedApps := make([]models.AppData, len(stats.Apps))
+	sortedApps := make([]AppData, len(stats.Apps))
 	copy(sortedApps, stats.Apps)
 	for i := 0; i < len(sortedApps); i++ {
 		for j := i + 1; j < len(sortedApps); j++ {
