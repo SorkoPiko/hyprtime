@@ -5,11 +5,11 @@ import (
 	"path/filepath"
 )
 
-func EnsureDir(path string) error {
+func ensureDir(path string) error {
 	return os.MkdirAll(path, 0755)
 }
 
-func DBPath() (string, error) {
+func dbPath() (string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return "", err

@@ -17,12 +17,12 @@ type DB struct {
 }
 
 func New() (*DB, error) {
-	dbPath, err := DBPath()
+	dbPath, err := dbPath()
 	if err != nil {
 		return nil, fmt.Errorf("db path: %w", err)
 	}
 
-	if err := EnsureDir(filepath.Dir(dbPath)); err != nil {
+	if err := ensureDir(filepath.Dir(dbPath)); err != nil {
 		return nil, fmt.Errorf("db dir: %w", err)
 	}
 
