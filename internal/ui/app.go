@@ -25,22 +25,6 @@ func New(db *db.DB) *App {
 	}
 }
 
-func (a *App) formatDuration(seconds int64) string {
-	d := time.Duration(seconds) * time.Second
-	h := int(d.Hours())
-	m := int(d.Minutes()) % 60
-	s := int(d.Seconds()) % 60
-
-	switch {
-	case h > 0:
-		return fmt.Sprintf("%dh %dm %ds", h, m, s)
-	case m > 0:
-		return fmt.Sprintf("%dm %ds", m, s)
-	default:
-		return fmt.Sprintf("%ds", s)
-	}
-}
-
 func (a *App) dailyUsage(date string) (*DailyData, error) {
 	usage, err := a.db.UsageByDate(date)
 	if err != nil {
@@ -55,17 +39,15 @@ func (a *App) dailyUsage(date string) (*DailyData, error) {
 	apps := make([]AppData, 0, len(usage))
 	for _, app := range usage {
 		apps = append(apps, AppData{
-			Class:              app.Class,
-			TotalTime:          app.Duration,
-			TotalTimeFormatted: a.formatDuration(app.Duration),
+			Class:     app.Class,
+			TotalTime: Duration(app.Duration),
 		})
 	}
 
 	return &DailyData{
-		Date:               date,
-		TotalTime:          totalTime,
-		TotalTimeFormatted: a.formatDuration(totalTime),
-		Apps:               apps,
+		Date:      date,
+		TotalTime: Duration(totalTime),
+		Apps:      apps,
 	}, nil
 }
 
@@ -145,7 +127,7 @@ func (a *App) updateData() {
 		return
 	}
 
-	a.totalTimeLabel.SetMarkup(fmt.Sprintf("<span size=\"xx-large\"><b>%s</b></span>", stats.TotalTimeFormatted))
+	a.totalTimeLabel.SetMarkup(fmt.Sprintf("<span size=\"xx-large\"><b>%s</b></span>", stats.TotalTime))
 
 	a.clearList()
 
@@ -173,9 +155,9 @@ func (a *App) updateData() {
 		appNameLabel.SetXAlign(0)
 		headerBox.PackStart(appNameLabel, true, true, 0)
 
-		timeLabel, _ := gtk.LabelNew(app.TotalTimeFormatted)
+		timeLabel, _ := gtk.LabelNew(app.TotalTime.String())
 		timeLabel.SetXAlign(0)
-		timeLabel.SetMarkup(fmt.Sprintf("<span size=\"small\" foreground=\"#666\">%s</span>", app.TotalTimeFormatted))
+		timeLabel.SetMarkup(fmt.Sprintf("<span size=\"small\" foreground=\"#666\">%s</span>", app.TotalTime))
 
 		rowBox.Add(headerBox)
 		rowBox.Add(timeLabel)
