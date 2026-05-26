@@ -99,7 +99,7 @@ func (t *Tracker) flush() {
 	duration := int64(now.Sub(t.lastUpdate).Seconds())
 
 	if duration > 0 {
-		if err := t.db.UpdateAppTime(t.currentID, duration); err != nil {
+		if err := t.db.AddUsage(t.currentID, duration); err != nil {
 			logger.Errorf("Update time: %v", err)
 		} else {
 			logger.Debugf("Update: %s (%.1fs)", t.currentApp, float64(duration))
@@ -120,7 +120,7 @@ func (t *Tracker) handleFocusChange(class string) {
 		return
 	}
 
-	appID, err := t.db.GetOrCreateApp(class)
+	appID, err := t.db.AppID(class)
 	if err != nil {
 		logger.Errorf("Get/create app: %v", err)
 		t.currentApp = ""

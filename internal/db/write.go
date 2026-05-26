@@ -2,7 +2,7 @@ package db
 
 import "time"
 
-func (db *DB) GetOrCreateApp(class string) (int64, error) {
+func (db *DB) AppID(class string) (int64, error) {
 	if _, err := db.db.Exec(
 		"INSERT INTO apps (class) VALUES (?) ON CONFLICT(class) DO NOTHING",
 		class,
@@ -18,7 +18,7 @@ func (db *DB) GetOrCreateApp(class string) (int64, error) {
 	return appID, nil
 }
 
-func (db *DB) UpdateAppTime(appID int64, duration int64) error {
+func (db *DB) AddUsage(appID int64, duration int64) error {
 	if duration <= 0 {
 		return nil
 	}

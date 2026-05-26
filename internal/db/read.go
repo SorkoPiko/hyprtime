@@ -1,13 +1,13 @@
 package db
 
-type DailyUsage struct {
-	AppID     int64  `json:"app_id"`
-	Class     string `json:"class"`
-	Date      string `json:"date"`
-	TotalTime int64  `json:"total_time"`
+type AppUsage struct {
+	AppID    int64
+	Class    string
+	Date     string
+	Duration int64
 }
 
-func (db *DB) GetDailyUsage(date string) ([]DailyUsage, error) {
+func (db *DB) UsageByDate(date string) ([]AppUsage, error) {
 	rows, err := db.db.Query(`
 		SELECT ds.app_id, a.class, ds.date, ds.duration
 		FROM daily_usage ds
@@ -20,19 +20,19 @@ func (db *DB) GetDailyUsage(date string) ([]DailyUsage, error) {
 	}
 	defer rows.Close()
 
-	var stats []DailyUsage
+	var usage []AppUsage
 	for rows.Next() {
-		var s DailyUsage
-		if err := rows.Scan(&s.AppID, &s.Class, &s.Date, &s.TotalTime); err != nil {
+		var u AppUsage
+		if err := rows.Scan(&u.AppID, &u.Class, &u.Date, &u.Duration); err != nil {
 			return nil, err
 		}
-		stats = append(stats, s)
+		usage = append(usage, u)
 	}
 
-	return stats, rows.Err()
+	return usage, rows.Err()
 }
 
-func (db *DB) GetTotalScreenTimeForDate(date string) (int64, error) {
+func (db *DB) TotalDurationByDate(date string) (int64, error) {
 	var total int64
 	err := db.db.QueryRow(`
 		SELECT COALESCE(SUM(duration), 0)

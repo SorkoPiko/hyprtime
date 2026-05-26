@@ -13,7 +13,7 @@ import (
 type App struct {
 	db             *db.DB
 	today          time.Time
-	appsListBox    *gtk.ListBox
+	appList        *gtk.ListBox
 	totalTimeLabel *gtk.Label
 	dateLabel      *gtk.Label
 }
@@ -41,28 +41,28 @@ func (a *App) formatDuration(seconds int64) string {
 	}
 }
 
-func (a *App) getDailyUsage(date string) (*DailyData, error) {
-	stats, err := a.db.GetDailyUsage(date)
+func (a *App) dailyUsage(date string) (*DailyData, error) {
+	usage, err := a.db.UsageByDate(date)
 	if err != nil {
 		return nil, fmt.Errorf("db error: %w", err)
 	}
 
-	totalTime, err := a.db.GetTotalScreenTimeForDate(date)
+	totalTime, err := a.db.TotalDurationByDate(date)
 	if err != nil {
 		return nil, fmt.Errorf("db error: %w", err)
 	}
 
-	apps := make([]AppData, 0, len(stats))
-	for _, stat := range stats {
+	apps := make([]AppData, 0, len(usage))
+	for _, app := range usage {
 		percentage := 0.0
 		if totalTime > 0 {
-			percentage = float64(stat.TotalTime) / float64(totalTime) * 100
+			percentage = float64(app.Duration) / float64(totalTime) * 100
 		}
 
 		apps = append(apps, AppData{
-			Class:              stat.Class,
-			TotalTime:          stat.TotalTime,
-			TotalTimeFormatted: a.formatDuration(stat.TotalTime),
+			Class:              app.Class,
+			TotalTime:          app.Duration,
+			TotalTimeFormatted: a.formatDuration(app.Duration),
 			Percentage:         percentage,
 		})
 	}
@@ -127,9 +127,9 @@ func (a *App) Run() error {
 	scrolledWindow.SetPolicy(gtk.POLICY_NEVER, gtk.POLICY_AUTOMATIC)
 	mainBox.PackStart(scrolledWindow, true, true, 0)
 
-	a.appsListBox, _ = gtk.ListBoxNew()
-	a.appsListBox.SetSelectionMode(gtk.SELECTION_NONE)
-	scrolledWindow.Add(a.appsListBox)
+	a.appList, _ = gtk.ListBoxNew()
+	a.appList.SetSelectionMode(gtk.SELECTION_NONE)
+	scrolledWindow.Add(a.appList)
 
 	a.updateData()
 
@@ -143,17 +143,17 @@ func (a *App) updateData() {
 	date := a.today.Format("2006-01-02")
 	a.dateLabel.SetText(date)
 
-	stats, err := a.getDailyUsage(date)
+	stats, err := a.dailyUsage(date)
 	if err != nil {
 		log.Printf("Error getting stats: %v", err)
 		a.totalTimeLabel.SetMarkup("<span size=\"xx-large\"><b>0s</b></span>")
-		a.clearListBox()
+		a.clearList()
 		return
 	}
 
 	a.totalTimeLabel.SetMarkup(fmt.Sprintf("<span size=\"xx-large\"><b>%s</b></span>", stats.TotalTimeFormatted))
 
-	a.clearListBox()
+	a.clearList()
 
 	sortedApps := make([]AppData, len(stats.Apps))
 	copy(sortedApps, stats.Apps)
@@ -195,15 +195,15 @@ func (a *App) updateData() {
 		rowBox.Add(progressBar)
 		rowBox.Add(timeLabel)
 
-		a.appsListBox.Add(rowBox)
+		a.appList.Add(rowBox)
 	}
-	a.appsListBox.ShowAll()
+	a.appList.ShowAll()
 }
 
-func (a *App) clearListBox() {
-	a.appsListBox.GetChildren().Foreach(func(item any) {
+func (a *App) clearList() {
+	a.appList.GetChildren().Foreach(func(item any) {
 		widget := item.(*gtk.Widget)
-		a.appsListBox.Remove(widget)
+		a.appList.Remove(widget)
 		widget.Destroy()
 	})
 }
