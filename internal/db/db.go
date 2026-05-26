@@ -17,16 +17,16 @@ type DB struct {
 }
 
 func New() (*DB, error) {
-	dbPath, err := dbPath()
+	path, err := dbPath()
 	if err != nil {
 		return nil, fmt.Errorf("db path: %w", err)
 	}
 
-	if err := ensureDir(filepath.Dir(dbPath)); err != nil {
+	if err := ensureDir(filepath.Dir(path)); err != nil {
 		return nil, fmt.Errorf("db dir: %w", err)
 	}
 
-	sqlDB, err := sql.Open("sqlite3", dbPath)
+	sqlDB, err := sql.Open("sqlite3", path)
 	if err != nil {
 		return nil, fmt.Errorf("open db: %w", err)
 	}
