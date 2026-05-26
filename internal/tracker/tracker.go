@@ -3,7 +3,6 @@ package tracker
 import (
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/ayanrajpoot10/hyprtime/internal/db"
@@ -11,29 +10,23 @@ import (
 )
 
 type Tracker struct {
-	db             *db.DB
-	ipc            *IPC
-	currentSession *Session
-	eventChan      chan string
-	stopChan       chan bool
-	wg             sync.WaitGroup
-	mu             sync.Mutex
-	lastUpdate     time.Time
-}
+	db     *db.DB
+	ipc    *IPC
+	events chan string
+	stop   chan struct{}
+	done   chan struct{}
 
-type Session struct {
-	appID         int64
-	class         string
-	windowTitle   string
-	windowAddress string
-	startTime     time.Time
+	currentApp string
+	currentID  int64
+	lastUpdate time.Time
 }
 
 func New(db *db.DB) *Tracker {
 	return &Tracker{
-		db:        db,
-		eventChan: make(chan string, 100),
-		stopChan:  make(chan bool),
+		db:     db,
+		events: make(chan string, 100),
+		stop:   make(chan struct{}),
+		done:   make(chan struct{}),
 	}
 }
 
@@ -47,19 +40,13 @@ func (t *Tracker) Start() error {
 	}
 
 	logger.Debugf("Subscribing to events")
-	if err := t.ipc.SubscribeToEvents(t.eventChan); err != nil {
+	if err := t.ipc.Subscribe(t.events); err != nil {
 		return fmt.Errorf("subscribe events: %w", err)
 	}
 
-	t.wg.Add(1)
-	go t.processEvents()
-
-	t.wg.Add(1)
-	go t.periodicUpdate()
+	go t.run()
 
 	logger.Infof("Tracking started")
-
-	go t.handleFocusChange()
 
 	return nil
 }
@@ -67,187 +54,82 @@ func (t *Tracker) Start() error {
 func (t *Tracker) Stop() {
 	logger.Infof("Stopping tracker")
 
-	t.mu.Lock()
-	if t.currentSession != nil {
-		now := time.Now()
-		var duration int64
-		if t.lastUpdate.IsZero() {
-			duration = int64(now.Sub(t.currentSession.startTime).Seconds())
-		} else {
-			duration = int64(now.Sub(t.lastUpdate).Seconds())
-		}
-
-		if err := t.db.UpdateAppTime(t.currentSession.appID, duration); err != nil {
-			logger.Errorf("Update time: %v", err)
-		} else {
-			logger.Debugf("Final update: %s (%.1fs)", t.currentSession.class, float64(duration))
-		}
-		t.currentSession = nil
-	}
-	t.mu.Unlock()
-
-	close(t.stopChan)
-	t.wg.Wait()
+	close(t.stop)
+	<-t.done
 
 	logger.Infof("Tracker stopped")
 }
 
-func (t *Tracker) processEvents() {
-	defer t.wg.Done()
-
-	for {
-		select {
-		case <-t.stopChan:
-			return
-		case event := <-t.eventChan:
-			if event == "" {
-				continue
-			}
-			eventType, data := ParseEvent(event)
-			logger.Debugf("Event: %s >> %s", eventType, data)
-
-			switch eventType {
-			case "activewindow":
-				go t.handleFocusChange()
-			case "activewindowv2":
-				go t.handleFocusChange()
-			case "openwindow":
-				go t.handleWindowOpen(data)
-			case "closewindow":
-				go t.handleWindowClose(data)
-			}
-		}
-	}
-}
-
-func (t *Tracker) periodicUpdate() {
-	defer t.wg.Done()
+func (t *Tracker) run() {
+	defer close(t.done)
 
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 
 	for {
 		select {
-		case <-t.stopChan:
+		case <-t.stop:
+			t.flush()
 			return
-		case <-ticker.C:
-			t.mu.Lock()
-			if t.currentSession != nil {
-				now := time.Now()
-				var duration int64
-				if t.lastUpdate.IsZero() {
-					duration = int64(now.Sub(t.currentSession.startTime).Seconds())
-				} else {
-					duration = int64(now.Sub(t.lastUpdate).Seconds())
-				}
 
-				if duration > 0 {
-					if err := t.db.UpdateAppTime(t.currentSession.appID, duration); err != nil {
-						logger.Errorf("Periodic update: %v", err)
-					} else {
-						logger.Debugf("Update: %s (%.1fs)", t.currentSession.class, float64(duration))
-						t.lastUpdate = now
-					}
-				}
+		case event := <-t.events:
+			if event == "" {
+				continue
 			}
-			t.mu.Unlock()
+			kind, data := ParseEvent(event)
+
+			if kind == "activewindow" {
+				logger.Debugf("Event: %s >> %s", kind, data)
+				fields := strings.SplitN(data, ",", 2)
+				t.handleFocusChange(fields[0])
+			}
+
+		case <-ticker.C:
+			t.flush()
 		}
 	}
 }
 
-func (t *Tracker) handleFocusChange() {
-	window, err := t.ipc.GetActiveWindow()
-	if err != nil {
-		logger.Errorf("Active window: %v", err)
+func (t *Tracker) flush() {
+	if t.currentApp == "" {
 		return
 	}
 
-	if window.Class == "" || window.Address == "" {
-		return
-	}
+	now := time.Now()
+	duration := int64(now.Sub(t.lastUpdate).Seconds())
 
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	if t.currentSession != nil && t.currentSession.windowAddress == window.Address {
-		return
-	}
-
-	if t.currentSession != nil {
-		now := time.Now()
-		var duration int64
-		if t.lastUpdate.IsZero() {
-			duration = int64(now.Sub(t.currentSession.startTime).Seconds())
-		} else {
-			duration = int64(now.Sub(t.lastUpdate).Seconds())
-		}
-
-		if err := t.db.UpdateAppTime(t.currentSession.appID, duration); err != nil {
+	if duration > 0 {
+		if err := t.db.UpdateAppTime(t.currentID, duration); err != nil {
 			logger.Errorf("Update time: %v", err)
 		} else {
-			logger.Debugf("Updated: %s (%.1fs)", t.currentSession.class, float64(duration))
+			logger.Debugf("Update: %s (%.1fs)", t.currentApp, float64(duration))
+			t.lastUpdate = now
 		}
 	}
+}
 
-	appID, err := t.db.GetOrCreateApp(window.Class)
-	if err != nil {
-		logger.Errorf("Get/create app: %v", err)
+func (t *Tracker) handleFocusChange(class string) {
+	if t.currentApp == class {
 		return
 	}
 
-	t.currentSession = &Session{
-		appID:         appID,
-		class:         window.Class,
-		windowTitle:   window.Title,
-		windowAddress: window.Address,
-		startTime:     time.Now(),
+	t.flush()
+
+	if class == "" {
+		t.currentApp = ""
+		return
 	}
+
+	appID, err := t.db.GetOrCreateApp(class)
+	if err != nil {
+		logger.Errorf("Get/create app: %v", err)
+		t.currentApp = ""
+		return
+	}
+
+	t.currentApp = class
+	t.currentID = appID
 	t.lastUpdate = time.Now()
 
-	logger.Infof("Focus: %s (%s)", window.Class, window.Title)
-}
-
-func (t *Tracker) handleWindowOpen(data string) {
-	parts := strings.SplitN(data, ",", 4)
-	if len(parts) < 3 {
-		return
-	}
-
-	class := parts[2]
-	if class == "" {
-		return
-	}
-
-	_, err := t.db.GetOrCreateApp(class)
-	if err != nil {
-		logger.Errorf("Get/create app: %v", err)
-		return
-	}
-
-	logger.Debugf("Open: %s", class)
-}
-
-func (t *Tracker) handleWindowClose(data string) {
-	address := strings.TrimSpace(data)
-
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	if t.currentSession != nil && t.currentSession.windowAddress == address {
-		now := time.Now()
-		var duration int64
-		if t.lastUpdate.IsZero() {
-			duration = int64(now.Sub(t.currentSession.startTime).Seconds())
-		} else {
-			duration = int64(now.Sub(t.lastUpdate).Seconds())
-		}
-
-		if err := t.db.UpdateAppTime(t.currentSession.appID, duration); err != nil {
-			logger.Errorf("Update time: %v", err)
-		} else {
-			logger.Debugf("Close: %s (%.1fs)", t.currentSession.class, float64(duration))
-		}
-		t.currentSession = nil
-		t.lastUpdate = time.Time{}
-	}
+	logger.Infof("Focus: %s", class)
 }
