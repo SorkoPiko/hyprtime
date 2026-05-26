@@ -3,17 +3,16 @@ package db
 type AppUsage struct {
 	AppID    int64
 	Class    string
-	Date     string
 	Duration int64
 }
 
 func (db *DB) UsageByDate(date string) ([]AppUsage, error) {
 	rows, err := db.db.Query(`
-		SELECT ds.app_id, a.class, ds.date, ds.duration
-		FROM daily_usage ds
-		JOIN apps a ON ds.app_id = a.id
-		WHERE ds.date = ?
-		ORDER BY ds.duration DESC
+		SELECT du.app_id, a.class, du.duration
+		FROM daily_usage du
+		JOIN apps a ON du.app_id = a.id
+		WHERE du.date = ?
+		ORDER BY du.duration DESC
 	`, date)
 	if err != nil {
 		return nil, err
@@ -23,7 +22,7 @@ func (db *DB) UsageByDate(date string) ([]AppUsage, error) {
 	var usage []AppUsage
 	for rows.Next() {
 		var u AppUsage
-		if err := rows.Scan(&u.AppID, &u.Class, &u.Date, &u.Duration); err != nil {
+		if err := rows.Scan(&u.AppID, &u.Class, &u.Duration); err != nil {
 			return nil, err
 		}
 		usage = append(usage, u)

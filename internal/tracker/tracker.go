@@ -69,7 +69,7 @@ func (t *Tracker) run() {
 	for {
 		select {
 		case <-t.stop:
-			t.flush()
+			t.syncUsage()
 			return
 
 		case event := <-t.events:
@@ -85,12 +85,12 @@ func (t *Tracker) run() {
 			}
 
 		case <-ticker.C:
-			t.flush()
+			t.syncUsage()
 		}
 	}
 }
 
-func (t *Tracker) flush() {
+func (t *Tracker) syncUsage() {
 	if t.currentApp == "" {
 		return
 	}
@@ -113,7 +113,7 @@ func (t *Tracker) handleFocusChange(class string) {
 		return
 	}
 
-	t.flush()
+	t.syncUsage()
 
 	if class == "" {
 		t.currentApp = ""
