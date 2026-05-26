@@ -10,35 +10,27 @@ func (db *DB) AppID(class string) (int64, error) {
 		return 0, err
 	}
 
-	var appID int64
-	if err := db.db.QueryRow("SELECT id FROM apps WHERE class = ?", class).Scan(&appID); err != nil {
+	var id int64
+	if err := db.db.QueryRow("SELECT id FROM apps WHERE class = ?", class).Scan(&id); err != nil {
 		return 0, err
 	}
 
-	return appID, nil
+	return id, nil
 }
 
-func (db *DB) AddUsage(appID int64, duration int64) error {
+func (db *DB) AddUsage(appID, duration int64) error {
 	if duration <= 0 {
 		return nil
 	}
 
-	tx, err := db.db.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
 	today := time.Now().Format("2006-01-02")
-	_, err = tx.Exec(`
+
+	_, err := db.db.Exec(`
 		INSERT INTO daily_usage (app_id, date, duration)
 		VALUES (?, ?, ?)
 		ON CONFLICT(app_id, date) DO UPDATE SET
-			duration = duration + ?
-	`, appID, today, duration, duration)
-	if err != nil {
-		return err
-	}
+			duration = duration + excluded.duration
+	`, appID, today, duration)
 
-	return tx.Commit()
+	return err
 }
