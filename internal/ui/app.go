@@ -54,16 +54,10 @@ func (a *App) dailyUsage(date string) (*DailyData, error) {
 
 	apps := make([]AppData, 0, len(usage))
 	for _, app := range usage {
-		percentage := 0.0
-		if totalTime > 0 {
-			percentage = float64(app.Duration) / float64(totalTime) * 100
-		}
-
 		apps = append(apps, AppData{
 			Class:              app.Class,
 			TotalTime:          app.Duration,
 			TotalTimeFormatted: a.formatDuration(app.Duration),
-			Percentage:         percentage,
 		})
 	}
 
@@ -179,20 +173,11 @@ func (a *App) updateData() {
 		appNameLabel.SetXAlign(0)
 		headerBox.PackStart(appNameLabel, true, true, 0)
 
-		percentLabel, _ := gtk.LabelNew(fmt.Sprintf("%.1f%%", app.Percentage))
-		percentLabel.SetMarkup(fmt.Sprintf("<span size=\"small\">%.1f%%</span>", app.Percentage))
-		headerBox.PackEnd(percentLabel, false, false, 0)
-
 		timeLabel, _ := gtk.LabelNew(app.TotalTimeFormatted)
 		timeLabel.SetXAlign(0)
 		timeLabel.SetMarkup(fmt.Sprintf("<span size=\"small\" foreground=\"#666\">%s</span>", app.TotalTimeFormatted))
 
-		progressBar, _ := gtk.ProgressBarNew()
-		progressBar.SetFraction(app.Percentage / 100.0)
-		progressBar.SetShowText(false)
-
 		rowBox.Add(headerBox)
-		rowBox.Add(progressBar)
 		rowBox.Add(timeLabel)
 
 		a.appList.Add(rowBox)
