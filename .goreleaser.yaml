@@ -29,7 +29,7 @@ builds:
 archives:
   - formats: [tar.xz]
 
-    name_template: "{{ .ProjectName }}"
+    name_template: "{{ .ProjectName }}_{{ .Version }}"
 
 checksum:
   name_template: checksums.txt
