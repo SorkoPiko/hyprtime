@@ -24,12 +24,12 @@ func (d Duration) String() string {
 }
 
 type AppData struct {
-	Class     string
-	TotalTime Duration
+	Class    string
+	Duration Duration
 }
 
 type DailyData struct {
-	Date      string
-	TotalTime Duration
-	Apps      []AppData
+	Date          string
+	TotalDuration Duration
+	Apps          []AppData
 }

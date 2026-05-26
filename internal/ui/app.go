@@ -11,11 +11,11 @@ import (
 )
 
 type App struct {
-	db             *db.DB
-	today          time.Time
-	appList        *gtk.ListBox
-	totalTimeLabel *gtk.Label
-	dateLabel      *gtk.Label
+	db                 *db.DB
+	today              time.Time
+	appList            *gtk.ListBox
+	totalDurationLabel *gtk.Label
+	dateLabel          *gtk.Label
 }
 
 func New(db *db.DB) *App {
@@ -31,7 +31,7 @@ func (a *App) dailyUsage(date string) (*DailyData, error) {
 		return nil, fmt.Errorf("db error: %w", err)
 	}
 
-	totalTime, err := a.db.TotalDurationByDate(date)
+	totalDuration, err := a.db.TotalDurationByDate(date)
 	if err != nil {
 		return nil, fmt.Errorf("db error: %w", err)
 	}
@@ -39,15 +39,15 @@ func (a *App) dailyUsage(date string) (*DailyData, error) {
 	apps := make([]AppData, 0, len(usage))
 	for _, app := range usage {
 		apps = append(apps, AppData{
-			Class:     app.Class,
-			TotalTime: Duration(app.Duration),
+			Class:    app.Class,
+			Duration: Duration(app.Duration),
 		})
 	}
 
 	return &DailyData{
-		Date:      date,
-		TotalTime: Duration(totalTime),
-		Apps:      apps,
+		Date:          date,
+		TotalDuration: Duration(totalDuration),
+		Apps:          apps,
 	}, nil
 }
 
@@ -95,9 +95,9 @@ func (a *App) Run() error {
 	headerBox.PackStart(nextBtn, false, false, 0)
 	mainBox.PackStart(headerBox, false, false, 0)
 
-	a.totalTimeLabel, _ = gtk.LabelNew("Total Time: 0s")
-	a.totalTimeLabel.SetMarkup("<b>Total Time: 0s</b>")
-	mainBox.PackStart(a.totalTimeLabel, false, false, 10)
+	a.totalDurationLabel, _ = gtk.LabelNew("Total Time: 0s")
+	a.totalDurationLabel.SetMarkup("<b>Total Time: 0s</b>")
+	mainBox.PackStart(a.totalDurationLabel, false, false, 10)
 
 	scrolledWindow, _ := gtk.ScrolledWindowNew(nil, nil)
 	scrolledWindow.SetPolicy(gtk.POLICY_NEVER, gtk.POLICY_AUTOMATIC)
@@ -122,12 +122,12 @@ func (a *App) updateData() {
 	stats, err := a.dailyUsage(date)
 	if err != nil {
 		log.Printf("Error getting stats: %v", err)
-		a.totalTimeLabel.SetMarkup("<span size=\"xx-large\"><b>0s</b></span>")
+		a.totalDurationLabel.SetMarkup("<span size=\"xx-large\"><b>0s</b></span>")
 		a.clearList()
 		return
 	}
 
-	a.totalTimeLabel.SetMarkup(fmt.Sprintf("<span size=\"xx-large\"><b>%s</b></span>", stats.TotalTime))
+	a.totalDurationLabel.SetMarkup(fmt.Sprintf("<span size=\"xx-large\"><b>%s</b></span>", stats.TotalDuration))
 
 	a.clearList()
 
@@ -135,7 +135,7 @@ func (a *App) updateData() {
 	copy(sortedApps, stats.Apps)
 	for i := 0; i < len(sortedApps); i++ {
 		for j := i + 1; j < len(sortedApps); j++ {
-			if sortedApps[j].TotalTime > sortedApps[i].TotalTime {
+			if sortedApps[j].Duration > sortedApps[i].Duration {
 				sortedApps[i], sortedApps[j] = sortedApps[j], sortedApps[i]
 			}
 		}
@@ -155,9 +155,9 @@ func (a *App) updateData() {
 		appNameLabel.SetXAlign(0)
 		headerBox.PackStart(appNameLabel, true, true, 0)
 
-		timeLabel, _ := gtk.LabelNew(app.TotalTime.String())
+		timeLabel, _ := gtk.LabelNew(app.Duration.String())
 		timeLabel.SetXAlign(0)
-		timeLabel.SetMarkup(fmt.Sprintf("<span size=\"small\" foreground=\"#666\">%s</span>", app.TotalTime))
+		timeLabel.SetMarkup(fmt.Sprintf("<span size=\"small\" foreground=\"#666\">%s</span>", app.Duration))
 
 		rowBox.Add(headerBox)
 		rowBox.Add(timeLabel)
