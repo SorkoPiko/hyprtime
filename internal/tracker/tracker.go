@@ -2,13 +2,26 @@ package tracker
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/ayanrajpoot10/hyprtime/internal/db"
+	"github.com/ayanrajpoot10/hyprtime/internal/editor"
 	"github.com/ayanrajpoot10/hyprtime/internal/idle"
+	"github.com/ayanrajpoot10/hyprtime/internal/keys"
 	"github.com/ayanrajpoot10/hyprtime/internal/logger"
+	"github.com/ayanrajpoot10/hyprtime/internal/typing"
 )
+
+type Options struct {
+	// Pause after this long without input; zero disables idle detection
+	IdleTimeout time.Duration
+	// Count typing statistics
+	Typing bool
+	// Window classes whose keys aren't counted as typing (games)
+	TypingExclude *regexp.Regexp
+}
 
 type Tracker struct {
 	db     *db.DB
@@ -17,6 +30,7 @@ type Tracker struct {
 	stop   chan struct{}
 	done   chan struct{}
 
+	opts        Options
 	idleTimeout time.Duration
 	idleEvents  <-chan bool
 	idleErrs    <-chan error
@@ -27,16 +41,23 @@ type Tracker struct {
 	lastUpdate time.Time
 	// When the current app's active stretch began (focus or resume from idle)
 	segmentStart time.Time
+
+	keys      *keys.Watcher
+	keyEvents <-chan typing.Key
+	counter   *typing.Counter
+	editors   *editor.Tracker
+	lastState time.Time
 }
 
-// New creates a tracker. An idleTimeout of zero disables idle detection.
-func New(db *db.DB, idleTimeout time.Duration) *Tracker {
+func New(db *db.DB, opts Options) *Tracker {
 	return &Tracker{
 		db:          db,
 		events:      make(chan string, 100),
 		stop:        make(chan struct{}),
 		done:        make(chan struct{}),
-		idleTimeout: idleTimeout,
+		opts:        opts,
+		idleTimeout: opts.IdleTimeout,
+		counter:     typing.NewCounter(),
 	}
 }
 
@@ -57,6 +78,12 @@ func (t *Tracker) Start() error {
 	if t.idleTimeout > 0 {
 		t.idleEvents, t.idleErrs = idle.Watch(t.idleTimeout)
 		logger.Infof("Idle detection enabled (%s)", t.idleTimeout)
+	}
+
+	if t.opts.Typing {
+		if err := t.startTyping(); err != nil {
+			logger.Errorf("Typing stats disabled: %v", err)
+		}
 	}
 
 	go t.run()
@@ -81,10 +108,15 @@ func (t *Tracker) run() {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 
+	stateTicker := time.NewTicker(1 * time.Second)
+	defer stateTicker.Stop()
+
 	for {
 		select {
 		case <-t.stop:
 			t.flush()
+			t.counter.Finish()
+			t.flushTyping()
 			return
 
 		case event := <-t.events:
@@ -93,10 +125,22 @@ func (t *Tracker) run() {
 			}
 			kind, data := ParseEvent(event)
 
-			if kind == "activewindow" {
+			switch kind {
+			case "activewindow":
 				logger.Debugf("Event: %s >> %s", kind, data)
 				fields := strings.SplitN(data, ",", 2)
 				t.handleFocusChange(fields[0])
+			case "activelayout":
+				t.reloadLayout()
+			}
+
+		case k := <-t.keyEvents:
+			t.handleKey(k)
+
+		case now := <-stateTicker.C:
+			// Publish while typing (live speed) and once when a burst ends
+			if t.counter.Tick(now) || now.Sub(t.lastState) < 3*time.Second {
+				t.writeState(now)
 			}
 
 		case idle := <-t.idleEvents:
@@ -110,6 +154,7 @@ func (t *Tracker) run() {
 
 		case <-ticker.C:
 			t.flush()
+			t.flushTyping()
 		}
 	}
 }
@@ -184,6 +229,7 @@ func (t *Tracker) handleFocusChange(class string) {
 	}
 
 	t.flush()
+	t.counter.ResetBuffer()
 
 	if class == "" {
 		t.currentApp = ""
@@ -203,4 +249,97 @@ func (t *Tracker) handleFocusChange(class string) {
 	t.segmentStart = t.lastUpdate
 
 	logger.Infof("Focus: %s", class)
+}
+
+func (t *Tracker) startTyping() error {
+	layout, err := t.ipc.KeyboardLayout()
+	if err != nil {
+		return fmt.Errorf("keyboard layout: %w", err)
+	}
+
+	w, err := keys.NewWatcher()
+	if err != nil {
+		return err
+	}
+	if err := w.SetLayout(layout); err != nil {
+		return err
+	}
+
+	today := time.Now().Format("2006-01-02")
+	totals, err := t.db.TypingByDate(today)
+	if err != nil {
+		return fmt.Errorf("load today's typing: %w", err)
+	}
+	bursts, err := t.db.BurstsByDate(today)
+	if err != nil {
+		return fmt.Errorf("load today's bursts: %w", err)
+	}
+	t.counter.Restore(today, totals, bursts)
+
+	t.editors, err = editor.Listen()
+	if err != nil {
+		logger.Errorf("Editor mode tracking disabled: %v", err)
+	}
+
+	w.Start()
+	t.keys = w
+	t.keyEvents = w.Keys()
+	t.writeState(time.Now())
+
+	logger.Infof("Typing stats enabled")
+	return nil
+}
+
+func (t *Tracker) reloadLayout() {
+	if t.keys == nil {
+		return
+	}
+	layout, err := t.ipc.KeyboardLayout()
+	if err != nil {
+		logger.Errorf("Keyboard layout: %v", err)
+		return
+	}
+	if err := t.keys.SetLayout(layout); err != nil {
+		logger.Errorf("Set keyboard layout: %v", err)
+	}
+}
+
+func (t *Tracker) handleKey(k typing.Key) {
+	if t.currentApp == "" ||
+		(t.opts.TypingExclude != nil && t.opts.TypingExclude.MatchString(t.currentApp)) ||
+		t.editors.Suppressed() {
+		t.counter.ResetBuffer()
+		return
+	}
+
+	t.counter.Handle(k, t.currentID)
+
+	if k.Time.Sub(t.lastState) >= 500*time.Millisecond {
+		t.writeState(k.Time)
+	}
+}
+
+func (t *Tracker) writeState(now time.Time) {
+	if t.keys == nil {
+		return
+	}
+	t.lastState = now
+	if err := typing.WriteState(t.counter.Snapshot(now)); err != nil {
+		logger.Errorf("Write typing state: %v", err)
+	}
+}
+
+func (t *Tracker) flushTyping() {
+	totals, bursts := t.counter.Drain()
+
+	for app, tot := range totals {
+		if err := t.db.AddTyping(app, tot); err != nil {
+			logger.Errorf("Save typing: %v", err)
+		}
+	}
+	for _, b := range bursts {
+		if err := t.db.AddBurst(b); err != nil {
+			logger.Errorf("Save burst: %v", err)
+		}
+	}
 }

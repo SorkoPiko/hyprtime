@@ -17,7 +17,7 @@ func newTestTracker(t *testing.T, idleTimeout time.Duration) *Tracker {
 	}
 	t.Cleanup(func() { d.Close() })
 
-	return New(d, idleTimeout)
+	return New(d, Options{IdleTimeout: idleTimeout})
 }
 
 func focus(t *testing.T, tr *Tracker, class string, at time.Time) {

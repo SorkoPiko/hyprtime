@@ -4,6 +4,7 @@ import (
 	"flag"
 	"os"
 	"os/signal"
+	"regexp"
 	"syscall"
 	"time"
 
@@ -16,9 +17,16 @@ func main() {
 	debug := flag.Bool("debug", false, "Enable debug logging")
 	silent := flag.Bool("silent", false, "Silent all non-error logs")
 	idleTimeout := flag.Duration("idle", 2*time.Minute, "Pause tracking after this long without input (0 disables)")
+	typingStats := flag.Bool("typing", true, "Count typing statistics (needs read access to /dev/input)")
+	typingExclude := flag.String("typing-exclude", `^(steam_app_\d+|gamescope)$`, "Regex of window classes whose keys aren't typing")
 	flag.Parse()
 
 	logger.Init()
+
+	exclude, err := regexp.Compile(*typingExclude)
+	if err != nil {
+		logger.Fatalf("Invalid -typing-exclude: %v", err)
+	}
 
 	if *debug {
 		logger.SetLevel(logger.Debug)
@@ -34,7 +42,11 @@ func main() {
 	}
 	defer db.Close()
 
-	t := tracker.New(db, *idleTimeout)
+	t := tracker.New(db, tracker.Options{
+		IdleTimeout:   *idleTimeout,
+		Typing:        *typingStats,
+		TypingExclude: exclude,
+	})
 	if err := t.Start(); err != nil {
 		logger.Fatalf("Tracker error: %v", err)
 	}
