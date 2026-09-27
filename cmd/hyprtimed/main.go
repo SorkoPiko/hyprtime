@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/ayanrajpoot10/hyprtime/internal/db"
 	"github.com/ayanrajpoot10/hyprtime/internal/logger"
@@ -14,6 +15,7 @@ import (
 func main() {
 	debug := flag.Bool("debug", false, "Enable debug logging")
 	silent := flag.Bool("silent", false, "Silent all non-error logs")
+	idleTimeout := flag.Duration("idle", 2*time.Minute, "Pause tracking after this long without input (0 disables)")
 	flag.Parse()
 
 	logger.Init()
@@ -32,7 +34,7 @@ func main() {
 	}
 	defer db.Close()
 
-	t := tracker.New(db)
+	t := tracker.New(db, *idleTimeout)
 	if err := t.Start(); err != nil {
 		logger.Fatalf("Tracker error: %v", err)
 	}

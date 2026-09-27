@@ -42,3 +42,18 @@ func (db *DB) AddUsage(appID int64, duration int64) error {
 
 	return tx.Commit()
 }
+
+// RemoveUsage takes back time already recorded today, e.g. the idle timeout
+// window that was counted before the user was known to be away.
+func (db *DB) RemoveUsage(appID int64, duration int64) error {
+	if duration <= 0 {
+		return nil
+	}
+
+	today := time.Now().Format("2006-01-02")
+	_, err := db.db.Exec(`
+		UPDATE daily_usage SET duration = MAX(0, duration - ?)
+		WHERE app_id = ? AND date = ?
+	`, duration, appID, today)
+	return err
+}
