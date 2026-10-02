@@ -18,7 +18,7 @@ func main() {
 	silent := flag.Bool("silent", false, "Silent all non-error logs")
 	idleTimeout := flag.Duration("idle", 2*time.Minute, "Pause tracking after this long without input (0 disables)")
 	typingStats := flag.Bool("typing", true, "Count typing statistics (needs read access to /dev/input)")
-	typingExclude := flag.String("typing-exclude", `^(steam_app_\d+|gamescope)$`, "Regex of window classes whose keys aren't typing")
+	typingExclude := flag.String("typing-exclude", `^(steam_app_\d+|gamescope|(?i:.*minecraft.*))$`, "Regex of window classes whose keys aren't typing")
 	flag.Parse()
 
 	logger.Init()
